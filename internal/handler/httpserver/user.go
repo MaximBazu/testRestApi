@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"RESTAPI/internal/errs"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -22,24 +23,26 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	// --- params ---
+	// 1. Получаем ID из URL (chi.URLParam)
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr) // "1" → 1
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		handleError(w, errs.ErrInvalidInput) // ← 400 Bad Request
 		return
 	}
 
-	// --- service ---
+	// 2. Вызываем сервис
 	user, err := h.userService.GetByID(r.Context(), id)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, err) // ← 404 или 500
 		return
 	}
 
-	// --- response ---
-	resp := mapper.ToUserResponse(user)
-	writeJSON(w, http.StatusOK, resp)
+	// 3. Маппим модель → DTO для ответа
+	response := mapper.ToUserResponse(user)
+
+	// 4. Отправляем JSON клиенту
+	writeJSON(w, http.StatusOK, response) // ← 200 + {"id":1,"name":"Alice",...}
 }
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {

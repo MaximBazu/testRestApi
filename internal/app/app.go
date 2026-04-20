@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"RESTAPI/internal/config"
 	"RESTAPI/internal/handler/httpserver"
@@ -14,21 +15,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type App struct {
-	Server *http.Server
-	DB     *pgxpool.Pool
-}
+func Run(ctx context.Context) error {
+	// канал для ошибок сервера
+	serverErr := make(chan error, 1)
 
-func NewApp(ctx context.Context) (*App, error) {
+	// config
 	cfg, err := config.MustLoad()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
+	// database (pool)
 	db, err := pgxpool.New(ctx, cfg.DB.DSN)
 	if err != nil {
-		return nil, fmt.Errorf("db error: %w", err)
+		return fmt.Errorf("db error: %w", err)
 	}
+	defer db.Close()
 
 	// dependencies
 	userRepo := postgres.NewUserRepository(db)
@@ -42,8 +44,31 @@ func NewApp(ctx context.Context) (*App, error) {
 		Handler: router,
 	}
 
-	return &App{
-		Server: server,
-		DB:     db,
-	}, nil
+	// start server
+	go func() {
+		log.Println("server started on", server.Addr)
+
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- fmt.Errorf("listen error: %w", err)
+		}
+		close(serverErr)
+	}()
+
+	// ждём либо сигнал остановки, либо ошибку сервера
+	select {
+	case <-ctx.Done(): // graceful shutdown
+		log.Println("shutting down server...")
+	case err := <-serverErr:
+		return fmt.Errorf("server error: %w", err)
+	}
+
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctxShutdown); err != nil {
+		return fmt.Errorf("server shutdown failed: %w", err)
+	}
+
+	log.Println("server exited properly")
+	return nil
 }

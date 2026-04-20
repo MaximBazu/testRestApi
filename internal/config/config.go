@@ -1,47 +1,32 @@
+// internal/config/config.go
 package config
 
 import (
-	"fmt"
-	"os"
+	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
-	HTTP HTTPConfig
-	DB   DBConfig
-}
-
-type HTTPConfig struct {
-	Port string
-}
-
-type DBConfig struct {
-	DSN string
+	HTTP struct {
+		Port        string        `envconfig:"HTTP_PORT" default:":8080"`
+		ReadTimeout time.Duration `envconfig:"HTTP_READ_TIMEOUT" default:"15s"`
+	}
+	DB struct {
+		DSN          string `envconfig:"DB_DSN" required:"true"`
+		MaxOpenConns int    `envconfig:"DB_MAX_OPEN_CONNS" default:"25"`
+		MaxIdleConns int    `envconfig:"DB_MAX_IDLE_CONNS" default:"5"`
+	}
+	AssetsDir string `envconfig:"ASSETS_DIR" default:"./assets"`
 }
 
 func MustLoad() (*Config, error) {
-	godotenv.Load()
-
-	cfg := &Config{
-		HTTP: HTTPConfig{
-			Port: getEnv("HTTP_PORT", ":8080"),
-		},
-		DB: DBConfig{
-			DSN: getEnv("DB_DSN", ""),
-		},
+	_ = godotenv.Load()
+	var cfg Config
+	// Префикс "APP" → переменные вида APP_DB_DSN, APP_HTTP_PORT
+	if err := envconfig.Process("", &cfg); err != nil {
+		return nil, err
 	}
-
-	if cfg.DB.DSN == "" {
-		return nil, fmt.Errorf("DB_DSN is required")
-	}
-
-	return cfg, nil
-}
-
-func getEnv(key, fallback string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return fallback
+	return &cfg, nil
 }
