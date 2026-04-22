@@ -16,6 +16,7 @@ import (
 
 type DBTX interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 type userRepository struct {
@@ -57,6 +58,46 @@ func (r *userRepository) GetByID(ctx context.Context, id int) (*model.User, erro
 	return &user, nil
 }
 
+func (r *userRepository) List(ctx context.Context, limit, offset int) ([]model.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT id, name, surname, email, telegram_tag, created_at
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := make([]model.User, 0, limit)
+	for rows.Next() {
+		var user model.User
+		if err := rows.Scan(
+			&user.ID,
+			&user.Name,
+			&user.Surname,
+			&user.Email,
+			&user.TelegramTag,
+			&user.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -67,7 +108,7 @@ func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 		RETURNING id, created_at
 	`
 
-	return r.db.QueryRow(ctx, query,
+	return r.db.QueryRow(
 		ctx,
 		query,
 		user.Name,
@@ -75,4 +116,21 @@ func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 		user.Email,
 		user.TelegramTag,
 	).Scan(&user.ID, &user.CreatedAt)
+}
+
+func (r *userRepository) Delete(ctx context.Context, id int) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	query := `DELETE FROM users WHERE id=$1`
+	tag, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	if tag.RowsAffected() == 0 {
+		return errs.ErrUserNotFound
+	}
+
+	return nil
 }

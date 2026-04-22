@@ -12,5 +12,6 @@ func ToUserResponse(u *model.User) dto.UserResponse {
 		Surname:     u.Surname,
 		Email:       u.Email,
 		TelegramTag: u.TelegramTag,
+		CreatedAt:   u.CreatedAt,
 	}
 }

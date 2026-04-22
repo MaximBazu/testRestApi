@@ -45,6 +45,43 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response) // ← 200 + {"id":1,"name":"Alice",...}
 }
 
+func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
+	limit := 20
+	offset := 0
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			handleError(w, errs.ErrInvalidInput)
+			return
+		}
+		limit = parsedLimit
+	}
+
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			handleError(w, errs.ErrInvalidInput)
+			return
+		}
+		offset = parsedOffset
+	}
+
+	users, err := h.userService.List(r.Context(), limit, offset)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	resp := make([]dto.UserResponse, 0, len(users))
+	for _, user := range users {
+		userCopy := user
+		resp = append(resp, mapper.ToUserResponse(&userCopy))
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// --- request ---
 	var req dto.CreateUserRequest
@@ -71,4 +108,20 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// --- response ---
 	resp := mapper.ToUserResponse(user)
 	writeJSON(w, http.StatusCreated, resp)
+}
+
+func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		handleError(w, errs.ErrInvalidInput)
+		return
+	}
+
+	if err := h.userService.Delete(r.Context(), id); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -17,8 +17,10 @@ func NewRouter(userHandler *UserHandler) http.Handler {
 	r.Use(middleware.Timeout(5 * time.Second))
 
 	r.Route("/users", func(r chi.Router) {
+		r.Get("/", userHandler.List)
 		r.Post("/", userHandler.Create)
 		r.Get("/{id}", userHandler.GetByID)
+		r.Delete("/{id}", userHandler.Delete)
 	})
 
 	return r

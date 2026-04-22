@@ -32,6 +32,13 @@ func Run(ctx context.Context) error {
 	}
 	defer db.Close()
 
+	pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer pingCancel()
+
+	if err := db.Ping(pingCtx); err != nil {
+		return fmt.Errorf("db ping error: %w", err)
+	}
+
 	// dependencies
 	userRepo := postgres.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)
