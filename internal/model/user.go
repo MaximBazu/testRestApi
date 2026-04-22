@@ -6,7 +6,9 @@ type User struct {
 	ID          int
 	Name        string
 	Surname     string
+	Patronymic  string
 	Email       string
+	Phone       string
 	TelegramTag string
 	CreatedAt   time.Time
 }

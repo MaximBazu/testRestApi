@@ -14,15 +14,15 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type UserHandler struct {
-	userService service.UserService
+type ProductHandler struct {
+	ProductService service.ProductService
 }
 
-func NewUserHandler(userService service.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+func NewProductHandler(ProductService service.ProductService) *ProductHandler {
+	return &ProductHandler{ProductService: ProductService}
 }
 
-func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	// 1. Получаем ID из URL (chi.URLParam)
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr) // "1" → 1
@@ -32,20 +32,20 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Вызываем сервис
-	user, err := h.userService.GetByID(r.Context(), id)
+	Product, err := h.ProductService.GetByID(r.Context(), id)
 	if err != nil {
 		handleError(w, err) // ← 404 или 500
 		return
 	}
 
 	// 3. Маппим модель → DTO для ответа
-	response := mapper.ToUserResponse(user)
+	response := mapper.ToProductResponse(Product)
 
 	// 4. Отправляем JSON клиенту
 	writeJSON(w, http.StatusOK, response) // ← 200 + {"id":1,"name":"Alice",...}
 }
 
-func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit := 20
 	offset := 0
 
@@ -67,24 +67,24 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 		offset = parsedOffset
 	}
 
-	users, err := h.userService.List(r.Context(), limit, offset)
+	Products, err := h.ProductService.List(r.Context(), limit, offset)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	resp := make([]dto.UserResponse, 0, len(users))
-	for _, user := range users {
-		userCopy := user
-		resp = append(resp, mapper.ToUserResponse(&userCopy))
+	resp := make([]dto.ProductResponse, 0, len(Products))
+	for _, Product := range Products {
+		ProductCopy := Product
+		resp = append(resp, mapper.ToProductResponse(&ProductCopy))
 	}
 
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// --- request ---
-	var req dto.CreateUserRequest
+	var req dto.CreateProductRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -92,27 +92,25 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- model ---
-	user := &model.User{
+	Product := &model.Product{
 		Name:        req.Name,
 		Surname:     req.Surname,
-		Patronymic:  req.Patronymic,
 		Email:       req.Email,
-		Phone:       req.Phone,
 		TelegramTag: req.TelegramTag,
 	}
 
 	// --- service ---
-	if err := h.userService.Create(r.Context(), user); err != nil {
+	if err := h.ProductService.Create(r.Context(), Product); err != nil {
 		handleError(w, err)
 		return
 	}
 
 	// --- response ---
-	resp := mapper.ToUserResponse(user)
+	resp := mapper.ToProductResponse(Product)
 	writeJSON(w, http.StatusCreated, resp)
 }
 
-func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -120,7 +118,7 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.userService.Delete(r.Context(), id); err != nil {
+	if err := h.ProductService.Delete(r.Context(), id); err != nil {
 		handleError(w, err)
 		return
 	}
