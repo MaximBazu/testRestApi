@@ -1,6 +1,7 @@
 package service
 
 import (
+	"RESTAPI/internal/dto"
 	"context"
 	"strings"
 
@@ -14,16 +15,17 @@ type ProductService interface {
 	List(ctx context.Context, limit, offset int) ([]model.Product, error)
 	Create(ctx context.Context, Product *model.Product) error
 	Delete(ctx context.Context, id int) error
+	Update(ctx context.Context, id int, req dto.UpdateProductRequest) error
 }
-type ProductService struct {
+type productService struct {
 	repo repository.ProductRepository
 }
 
-func NewProductrService(repo repository.ProductRepository) ProductService {
-	return &ProductService{repo: repo}
+func NewProductService(repo repository.ProductRepository) ProductService {
+	return &productService{repo: repo}
 }
 
-func (s *ProductService) GetByID(ctx context.Context, id int) (*model.Product, error) {
+func (s *productService) GetByID(ctx context.Context, id int) (*model.Product, error) {
 	Product, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -31,7 +33,7 @@ func (s *ProductService) GetByID(ctx context.Context, id int) (*model.Product, e
 	return Product, nil
 }
 
-func (s *ProductService) List(ctx context.Context, limit, offset int) ([]model.Product, error) {
+func (s *productService) List(ctx context.Context, limit, offset int) ([]model.Product, error) {
 	if limit <= 0 || limit > 100 {
 		return nil, errs.ErrInvalidInput
 	}
@@ -46,10 +48,7 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]model.P
 	return Products, nil
 }
 
-func (s *ProductService) Create(ctx context.Context, Product *model.Product) error {
-	if err := validateProduct(Product); err != nil {
-		return err
-	}
+func (s *productService) Create(ctx context.Context, Product *model.Product) error {
 
 	if err := s.repo.Create(ctx, Product); err != nil {
 		return err
@@ -58,7 +57,7 @@ func (s *ProductService) Create(ctx context.Context, Product *model.Product) err
 	return nil
 }
 
-func (s *ProductService) Delete(ctx context.Context, id int) error {
+func (s *productService) Delete(ctx context.Context, id int) error {
 	if id <= 0 {
 		return errs.ErrInvalidInput
 	}
@@ -70,18 +69,25 @@ func (s *ProductService) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func validateProduct(u *model.Product) error {
-	if strings.TrimSpace(u.Name) == "" {
+func (s *productService) Update(ctx context.Context, id int, req dto.UpdateProductRequest) error {
+	if id <= 0 {
 		return errs.ErrInvalidInput
 	}
 
-	if strings.TrimSpace(u.Email) == "" {
+	// хотя бы одно поле должно прийти
+	if req.Name == nil && req.Description == nil && req.Price == nil && req.Slug == nil {
 		return errs.ErrInvalidInput
 	}
 
-	if !strings.Contains(u.Email, "@") {
+	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
+		return errs.ErrInvalidInput
+	}
+	if req.Price != nil && *req.Price < 0 {
+		return errs.ErrInvalidInput
+	}
+	if req.Slug != nil && strings.TrimSpace(*req.Slug) == "" {
 		return errs.ErrInvalidInput
 	}
 
-	return nil
+	return s.repo.Update(ctx, id, req)
 }

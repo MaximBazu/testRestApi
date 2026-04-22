@@ -17,3 +17,10 @@ type ProductResponse struct {
 	Slug        string
 	CreatedAt   time.Time
 }
+
+type UpdateProductRequest struct {
+	Name        *string  `json:"name"`
+	Description *string  `json:"description"`
+	Price       *float64 `json:"price"`
+	Slug        *string  `json:"slug"`
+}

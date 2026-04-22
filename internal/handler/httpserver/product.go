@@ -15,11 +15,11 @@ import (
 )
 
 type ProductHandler struct {
-	ProductService service.ProductService
+	productService service.ProductService
 }
 
-func NewProductHandler(ProductService service.ProductService) *ProductHandler {
-	return &ProductHandler{ProductService: ProductService}
+func NewProductHandler(productService service.ProductService) *ProductHandler {
+	return &ProductHandler{productService: productService}
 }
 
 func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Вызываем сервис
-	Product, err := h.ProductService.GetByID(r.Context(), id)
+	Product, err := h.productService.GetByID(r.Context(), id)
 	if err != nil {
 		handleError(w, err) // ← 404 или 500
 		return
@@ -67,7 +67,7 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 		offset = parsedOffset
 	}
 
-	Products, err := h.ProductService.List(r.Context(), limit, offset)
+	Products, err := h.productService.List(r.Context(), limit, offset)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -94,13 +94,13 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// --- model ---
 	Product := &model.Product{
 		Name:        req.Name,
-		Surname:     req.Surname,
-		Email:       req.Email,
-		TelegramTag: req.TelegramTag,
+		Description: req.Description,
+		Price:       req.Price,
+		Slug:        req.Slug,
 	}
 
 	// --- service ---
-	if err := h.ProductService.Create(r.Context(), Product); err != nil {
+	if err := h.productService.Create(r.Context(), Product); err != nil {
 		handleError(w, err)
 		return
 	}
@@ -118,7 +118,29 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.ProductService.Delete(r.Context(), id); err != nil {
+	if err := h.productService.Delete(r.Context(), id); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		handleError(w, errs.ErrInvalidInput)
+		return
+	}
+
+	var req dto.UpdateProductRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.productService.Update(r.Context(), id, req); err != nil {
 		handleError(w, err)
 		return
 	}

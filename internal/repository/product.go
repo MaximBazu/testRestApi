@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"RESTAPI/internal/dto"
 	"RESTAPI/internal/model"
 	"context"
 )
@@ -10,4 +11,5 @@ type ProductRepository interface {
 	List(ctx context.Context, limit, offset int) ([]model.Product, error)
 	Create(ctx context.Context, Product *model.Product) error
 	Delete(ctx context.Context, id int) error
+	Update(ctx context.Context, id int, req dto.UpdateProductRequest) error
 }
