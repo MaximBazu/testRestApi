@@ -14,11 +14,21 @@ type ErrorResponse struct {
 
 func handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errs.ErrUserNotFound):
-		writeError(w, http.StatusNotFound, "user not found")
+	case errors.Is(err, errs.ErrUserNotFound),
+		errors.Is(err, errs.ErrProductNotFound):
+		writeError(w, http.StatusNotFound, err.Error())
 
-	case errors.Is(err, errs.ErrInvalidInput):
-		writeError(w, http.StatusBadRequest, "invalid input")
+	case errors.Is(err, errs.ErrInvalidInput),
+		errors.Is(err, errs.ErrBadFormat),
+		errors.Is(err, errs.ErrNotNull),
+		errors.Is(err, errs.ErrValueTooLong):
+		writeError(w, http.StatusBadRequest, err.Error())
+
+	case errors.Is(err, errs.ErrConflict):
+		writeError(w, http.StatusConflict, err.Error())
+
+	case errors.Is(err, errs.ErrForeignKey):
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 
 	default:
 		writeError(w, http.StatusInternalServerError, "internal error")

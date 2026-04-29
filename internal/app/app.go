@@ -44,8 +44,34 @@ func Run(ctx context.Context) error {
 	userService := service.NewUserService(userRepo)
 	userHandler := httpserver.NewUserHandler(userService)
 
-	router := httpserver.NewRouter(userHandler)
+	productRepo := postgres.NewProductRepository(db)
+	productService := service.NewProductService(productRepo)
+	productHandler := httpserver.NewProductHandler(productService)
 
+	orderRepo := postgres.NewOrderRepository(db)
+	orderService := service.NewOrderService(orderRepo)
+	orderHandler := httpserver.NewOrderHandler(orderService)
+
+	orderItemRepo := postgres.NewOrderItemRepository(db)
+	orderItemService := service.NewOrderItemService(orderItemRepo)
+	orderItemHandler := httpserver.NewOrderItemHandler(orderItemService)
+
+	productSizeRepo := postgres.NewProductSizeRepository(db)
+	productSizeService := service.NewProductSizeService(productSizeRepo)
+	productSizeHandler := httpserver.NewProductSizeHandler(productSizeService)
+
+	productImageRepo := postgres.NewProductImageRepository(db)
+	productImageService := service.NewProductImageService(productImageRepo)
+	productImageHandler := httpserver.NewProductImageHandler(productImageService)
+
+	router := httpserver.NewRouter(
+		userHandler,
+		productHandler,
+		orderHandler,
+		orderItemHandler,
+		productSizeHandler,
+		productImageHandler,
+	)
 	server := &http.Server{
 		Addr:    cfg.HTTP.Port,
 		Handler: router,

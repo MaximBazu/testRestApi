@@ -35,7 +35,7 @@ func (r *userRepository) GetByID(ctx context.Context, id int) (*model.User, erro
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	query := `SELECT id, name, surname, patronymic, email, phone, telegram_tag, created_at FROM users WHERE id=$1`
+	query := `SELECT user_id, name, surname, patronymic, email, phone, telegram_tag, created_at FROM users WHERE user_id=$1`
 
 	var user model.User
 
@@ -54,7 +54,7 @@ func (r *userRepository) GetByID(ctx context.Context, id int) (*model.User, erro
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%w: %v", errs.ErrUserNotFound, err)
 		}
-		return nil, err
+		return nil, MapPGError(err)
 	}
 
 	return &user, nil
@@ -65,7 +65,7 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]model.U
 	defer cancel()
 
 	query := `
-		SELECT id, name, surname, patronymoic, email, phone, telegram_tag, created_at
+		SELECT user_id, name, surname, patronymic, email, phone, telegram_tag, created_at
 		FROM users
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -73,7 +73,7 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]model.U
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, MapPGError(err)
 	}
 	defer rows.Close()
 
@@ -90,13 +90,13 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]model.U
 			&user.TelegramTag,
 			&user.CreatedAt,
 		); err != nil {
-			return nil, err
+			return nil, MapPGError(err)
 		}
 		users = append(users, user)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, MapPGError(err)
 	}
 
 	return users, nil
@@ -109,10 +109,10 @@ func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
 		INSERT INTO users (name, surname, patronymic, email, phone, telegram_tag)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, created_at
+		RETURNING user_id, created_at
 	`
 
-	return r.db.QueryRow(
+	err := r.db.QueryRow(
 		ctx,
 		query,
 		user.Name,
@@ -122,16 +122,22 @@ func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 		user.Phone,
 		user.TelegramTag,
 	).Scan(&user.ID, &user.CreatedAt)
+
+	if err != nil {
+		return MapPGError(err)
+	}
+
+	return nil
 }
 
 func (r *userRepository) Delete(ctx context.Context, id int) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	query := `DELETE FROM users WHERE id=$1`
+	query := `DELETE FROM users WHERE user_id=$1`
 	tag, err := r.db.Exec(ctx, query, id)
 	if err != nil {
-		return err
+		return MapPGError(err)
 	}
 
 	if tag.RowsAffected() == 0 {
