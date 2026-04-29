@@ -14,22 +14,39 @@ type ErrorResponse struct {
 
 func handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errs.ErrUserNotFound),
-		errors.Is(err, errs.ErrProductNotFound):
-		writeError(w, http.StatusNotFound, err.Error())
+	// 404
+	case errors.Is(err, errs.ErrUserNotFound):
+		writeError(w, http.StatusNotFound, "user not found")
+	case errors.Is(err, errs.ErrProductNotFound):
+		writeError(w, http.StatusNotFound, "product not found")
+	case errors.Is(err, errs.ErrOrderNotFound):
+		writeError(w, http.StatusNotFound, "order not found")
+	case errors.Is(err, errs.ErrOrderItemNotFound):
+		writeError(w, http.StatusNotFound, "order item not found")
+	case errors.Is(err, errs.ErrProductSizeNotFound):
+		writeError(w, http.StatusNotFound, "product size not found")
+	case errors.Is(err, errs.ErrProductImageNotFound):
+		writeError(w, http.StatusNotFound, "product image not found")
 
-	case errors.Is(err, errs.ErrInvalidInput),
-		errors.Is(err, errs.ErrBadFormat),
-		errors.Is(err, errs.ErrNotNull),
-		errors.Is(err, errs.ErrValueTooLong):
-		writeError(w, http.StatusBadRequest, err.Error())
+	// 400
+	case errors.Is(err, errs.ErrInvalidInput):
+		writeError(w, http.StatusBadRequest, "invalid input")
+	case errors.Is(err, errs.ErrBadFormat):
+		writeError(w, http.StatusBadRequest, "bad format")
+	case errors.Is(err, errs.ErrValueTooLong):
+		writeError(w, http.StatusBadRequest, "value too long")
+	case errors.Is(err, errs.ErrNotNull):
+		writeError(w, http.StatusBadRequest, "not null violation")
 
+	// 409
 	case errors.Is(err, errs.ErrConflict):
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusConflict, "conflict")
 
+	// 422
 	case errors.Is(err, errs.ErrForeignKey):
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		writeError(w, http.StatusUnprocessableEntity, "foreign key violation")
 
+	// 500
 	default:
 		writeError(w, http.StatusInternalServerError, "internal error")
 	}
