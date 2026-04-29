@@ -55,7 +55,7 @@ func (r *ProductRepository) GetByID(ctx context.Context, id int) (*model.Product
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%w: %v", errs.ErrProductNotFound, err)
 		}
-		return nil, err
+		return nil, MapPGError(err)
 	}
 
 	return &p, nil
@@ -74,7 +74,7 @@ func (r *ProductRepository) List(ctx context.Context, limit, offset int) ([]mode
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, MapPGError(err)
 	}
 	defer rows.Close()
 
@@ -89,7 +89,7 @@ func (r *ProductRepository) List(ctx context.Context, limit, offset int) ([]mode
 			&p.Slug,
 			&p.CreatedAt,
 		); err != nil {
-			return nil, err
+			return nil, MapPGError(err)
 		}
 		products = append(products, p)
 	}
@@ -111,7 +111,7 @@ func (r *ProductRepository) Create(ctx context.Context, p *model.Product) error 
 		RETURNING product_id, created_at
 	`
 
-	return r.db.QueryRow(
+	err := r.db.QueryRow(
 		ctx,
 		query,
 		p.Name,
@@ -119,6 +119,12 @@ func (r *ProductRepository) Create(ctx context.Context, p *model.Product) error 
 		p.Price,
 		p.Slug,
 	).Scan(&p.ID, &p.CreatedAt)
+
+	if err != nil {
+		return MapPGError(err)
+	}
+
+	return nil
 }
 
 func (r *ProductRepository) Delete(ctx context.Context, id int) error {
@@ -128,7 +134,7 @@ func (r *ProductRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM products WHERE product_id = $1`
 	tag, err := r.db.Exec(ctx, query, id)
 	if err != nil {
-		return err
+		return MapPGError(err)
 	}
 
 	if tag.RowsAffected() == 0 {
@@ -153,7 +159,7 @@ func (r *ProductRepository) Update(ctx context.Context, id int, req dto.UpdatePr
 	`
 	tag, err := r.db.Exec(ctx, query, req.Name, req.Description, req.Price, req.Slug, id)
 	if err != nil {
-		return err
+		return MapPGError(err)
 	}
 
 	if tag.RowsAffected() == 0 {
