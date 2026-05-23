@@ -13,7 +13,7 @@ func ToUserResponse(u *model.User) dto.UserResponse {
 		Patronymic:  u.Patronymic,
 		Email:       u.Email,
 		Phone:       u.Phone,
-		TelegramTag: u.TelegramTag,
+		TelegramTag: u.TGTag,
 		CreatedAt:   u.CreatedAt,
 	}
 }

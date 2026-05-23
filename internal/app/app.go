@@ -48,10 +48,6 @@ func Run(ctx context.Context) error {
 	productService := service.NewProductService(productRepo)
 	productHandler := httpserver.NewProductHandler(productService)
 
-	orderRepo := postgres.NewOrderRepository(db)
-	orderService := service.NewOrderService(orderRepo)
-	orderHandler := httpserver.NewOrderHandler(orderService)
-
 	orderItemRepo := postgres.NewOrderItemRepository(db)
 	orderItemService := service.NewOrderItemService(orderItemRepo)
 	orderItemHandler := httpserver.NewOrderItemHandler(orderItemService)
@@ -63,6 +59,16 @@ func Run(ctx context.Context) error {
 	productImageRepo := postgres.NewProductImageRepository(db)
 	productImageService := service.NewProductImageService(productImageRepo)
 	productImageHandler := httpserver.NewProductImageHandler(productImageService)
+
+	orderRepo := postgres.NewOrderRepository(db)
+	orderService := service.NewOrderService(
+		db,
+		orderRepo,
+		userRepo,
+		orderItemRepo,
+		productSizeRepo,
+	)
+	orderHandler := httpserver.NewOrderHandler(orderService)
 
 	router := httpserver.NewRouter(
 		userHandler,

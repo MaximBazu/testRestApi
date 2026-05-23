@@ -46,7 +46,7 @@ func (r *userRepository) GetByID(ctx context.Context, id int) (*model.User, erro
 		&user.Patronymic,
 		&user.Email,
 		&user.Phone,
-		&user.TelegramTag,
+		&user.TGTag,
 		&user.CreatedAt,
 	)
 
@@ -87,7 +87,7 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]model.U
 			&user.Patronymic,
 			&user.Email,
 			&user.Phone,
-			&user.TelegramTag,
+			&user.TGTag,
 			&user.CreatedAt,
 		); err != nil {
 			return nil, MapPGError(err)
@@ -120,7 +120,7 @@ func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 		user.Patronymic,
 		user.Email,
 		user.Phone,
-		user.TelegramTag,
+		user.TGTag,
 	).Scan(&user.ID, &user.CreatedAt)
 
 	if err != nil {

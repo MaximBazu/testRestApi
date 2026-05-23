@@ -10,4 +10,6 @@ type ProductSizeRepository interface {
 	List(ctx context.Context, limit, offset int) ([]model.ProductSize, error)
 	Create(ctx context.Context, productSize *model.ProductSize) error
 	Delete(ctx context.Context, id int) error
+
+	DecreaseStock(ctx context.Context, sizeID int, qty int) error
 }

@@ -28,10 +28,10 @@ func (r *orderRepository) GetByID(ctx context.Context, id int) (*model.Order, er
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	query := `SELECT order_id, user_id, shipping_address, created_at FROM orders WHERE order_id = $1`
+	query := `SELECT order_id, user_id, shipping_address, total_amount, idempotency_key, created_at FROM orders WHERE order_id = $1`
 
 	var o model.Order
-	if err := r.db.QueryRow(ctx, query, id).Scan(&o.ID, &o.UserID, &o.ShippingAddress, &o.CreatedAt); err != nil {
+	if err := r.db.QueryRow(ctx, query, id).Scan(&o.ID, &o.UserID, &o.ShippingAddress, &o.TotalAmount, &o.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%w: %v", errs.ErrOrderNotFound, err)
 		}
@@ -46,7 +46,7 @@ func (r *orderRepository) List(ctx context.Context, limit, offset int) ([]model.
 	defer cancel()
 
 	query := `
-		SELECT order_id, user_id, shipping_address, created_at
+		SELECT order_id, user_id, shipping_address, total_amount, idempotency_key, created_at
 		FROM orders
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -61,7 +61,7 @@ func (r *orderRepository) List(ctx context.Context, limit, offset int) ([]model.
 	orders := make([]model.Order, 0, limit)
 	for rows.Next() {
 		var o model.Order
-		if err := rows.Scan(&o.ID, &o.UserID, &o.ShippingAddress, &o.CreatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.UserID, &o.ShippingAddress, &o.TotalAmount, &o.CreatedAt); err != nil {
 			return nil, MapPGError(err)
 		}
 		orders = append(orders, o)
@@ -79,12 +79,12 @@ func (r *orderRepository) Create(ctx context.Context, order *model.Order) error 
 	defer cancel()
 
 	query := `
-		INSERT INTO orders (user_id, shipping_address)
-		VALUES ($1, $2)
-		RETURNING order_id, created_at
+		INSERT INTO orders (user_id, shipping_address, total_amount, idempotency_key)
+		VALUES ($1, $2, $3, $4)
+		RETURNING order_id, created_at;
 	`
 
-	err := r.db.QueryRow(ctx, query, order.UserID, order.ShippingAddress).Scan(&order.ID, &order.CreatedAt)
+	err := r.db.QueryRow(ctx, query, order.UserID, order.ShippingAddress, order.TotalAmount).Scan(&order.ID, &order.CreatedAt)
 
 	if err != nil {
 		return MapPGError(err)
@@ -105,4 +105,32 @@ func (r *orderRepository) Delete(ctx context.Context, id int) error {
 		return errs.ErrOrderNotFound
 	}
 	return nil
+}
+
+func (r *orderRepository) GetByIdempotencyKey(ctx context.Context, key string) (*model.Order, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT order_id, user_id, shipping_address, total_amount, idempotency_key, created_at
+		FROM orders
+		WHERE idempotency_key = $1
+	`
+
+	var o model.Order
+	if err := r.db.QueryRow(ctx, query, key).Scan(
+		&o.ID,
+		&o.UserID,
+		&o.ShippingAddress,
+		&o.TotalAmount,
+		&o.IdempotencyKey,
+		&o.CreatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // ключа ещё нет
+		}
+		return nil, MapPGError(err)
+	}
+
+	return &o, nil
 }

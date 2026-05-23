@@ -6,7 +6,7 @@ type Product struct {
 	ID          int
 	Name        string
 	Description string
-	Price       float64
+	Price       int64
 	Slug        string
 	CreatedAt   time.Time
 }

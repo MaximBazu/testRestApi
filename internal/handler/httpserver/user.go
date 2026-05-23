@@ -93,12 +93,12 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// --- model ---
 	user := &model.User{
-		Name:        req.Name,
-		Surname:     req.Surname,
-		Patronymic:  req.Patronymic,
-		Email:       req.Email,
-		Phone:       req.Phone,
-		TelegramTag: req.TelegramTag,
+		Name:       req.Name,
+		Surname:    req.Surname,
+		Patronymic: req.Patronymic,
+		Email:      req.Email,
+		Phone:      req.Phone,
+		TGTag:      req.TelegramTag,
 	}
 
 	// --- service ---

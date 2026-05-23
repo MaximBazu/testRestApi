@@ -10,4 +10,6 @@ type OrderRepository interface {
 	List(ctx context.Context, limit, offset int) ([]model.Order, error)
 	Create(ctx context.Context, order *model.Order) error
 	Delete(ctx context.Context, id int) error
+	// order repo
+	GetByIdempotencyKey(ctx context.Context, key string) (*model.Order, error)
 }

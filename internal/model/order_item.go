@@ -6,5 +6,5 @@ type OrderItem struct {
 	ProductID       int
 	ProductSizeID   int
 	Quantity        int
-	PriceAtPurchase float64
+	PriceAtPurchase int64
 }

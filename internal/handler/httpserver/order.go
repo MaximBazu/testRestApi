@@ -4,7 +4,6 @@ import (
 	"RESTAPI/internal/dto"
 	"RESTAPI/internal/errs"
 	"RESTAPI/internal/mapper"
-	"RESTAPI/internal/model"
 	"RESTAPI/internal/service"
 	"encoding/json"
 	"net/http"
@@ -62,12 +61,12 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 
-	order := &model.Order{UserID: req.UserID, ShippingAddress: req.ShippingAddress}
-	if err := h.orderService.Create(r.Context(), order); err != nil {
+	order, err := h.orderService.Checkout(r.Context(), req)
+	if err != nil {
 		handleError(w, err)
 		return
 	}

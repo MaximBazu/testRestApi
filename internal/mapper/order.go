@@ -10,6 +10,7 @@ func ToOrderResponse(o *model.Order) dto.OrderResponse {
 		ID:              o.ID,
 		UserID:          o.UserID,
 		ShippingAddress: o.ShippingAddress,
+		TotalAmount:     o.TotalAmount,
 		CreatedAt:       o.CreatedAt,
 	}
 }

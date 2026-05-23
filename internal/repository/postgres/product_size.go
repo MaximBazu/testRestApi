@@ -104,3 +104,24 @@ func (r *productSizeRepository) Delete(ctx context.Context, id int) error {
 	}
 	return nil
 }
+
+func (r *productSizeRepository) DecreaseStock(ctx context.Context, sizeID int, qty int) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	tag, err := r.db.Exec(ctx, `
+		UPDATE product_sizes
+		SET stock = stock - $2
+		WHERE product_size_id = $1
+		  AND stock >= $2
+	`, sizeID, qty)
+	if err != nil {
+		return MapPGError(err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return errs.ErrInvalidInput // можно заменить на отдельную ErrInsufficientStock
+	}
+
+	return nil
+}
