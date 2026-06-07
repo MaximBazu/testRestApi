@@ -61,7 +61,7 @@ func (r *orderRepository) List(ctx context.Context, limit, offset int) ([]model.
 	orders := make([]model.Order, 0, limit)
 	for rows.Next() {
 		var o model.Order
-		if err := rows.Scan(&o.ID, &o.UserID, &o.ShippingAddress, &o.TotalAmount, &o.CreatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.UserID, &o.ShippingAddress, &o.TotalAmount, &o.IdempotencyKey, &o.CreatedAt); err != nil {
 			return nil, MapPGError(err)
 		}
 		orders = append(orders, o)
@@ -81,12 +81,24 @@ func (r *orderRepository) Create(ctx context.Context, order *model.Order) error 
 	query := `
 		INSERT INTO orders (user_id, shipping_address, total_amount, idempotency_key)
 		VALUES ($1, $2, $3, $4)
-		RETURNING order_id, created_at;
+		ON CONFLICT (idempotency_key) DO NOTHING
+		RETURNING order_id, created_at
 	`
 
-	err := r.db.QueryRow(ctx, query, order.UserID, order.ShippingAddress, order.TotalAmount).Scan(&order.ID, &order.CreatedAt)
+	err := r.db.QueryRow(
+		ctx,
+		query,
+		order.UserID,
+		order.ShippingAddress,
+		order.TotalAmount,
+		order.IdempotencyKey,
+	).Scan(&order.ID, &order.CreatedAt)
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Конфликт по idempotency_key: строка уже существует
+			return errs.ErrIdempotencyAlreadyProcessed
+		}
 		return MapPGError(err)
 	}
 

@@ -20,4 +20,6 @@ var (
 	ErrValueTooLong = errors.New("value too long")        // 22001
 	ErrBadFormat    = errors.New("bad format")            // 22P02
 	ErrNotNull      = errors.New("not null violation")    // 23502
+
+	ErrIdempotencyAlreadyProcessed = errors.New("idempotency key already processed")
 )

@@ -7,6 +7,7 @@ import (
 	"RESTAPI/internal/repository"
 	"RESTAPI/internal/repository/postgres"
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -84,27 +85,16 @@ func (s *orderService) Checkout(ctx context.Context, req dto.CreateOrderRequest)
 		return nil, errs.ErrInvalidInput
 	}
 
-	// 2) идемпотентность (первичная проверка до транзакции)
-	existing, err := s.repo.GetByIdempotencyKey(ctx, req.IdempotencyKey)
-	if err != nil {
-		return nil, err
-	}
-	if existing != nil {
-		// MVP-вариант: возвращаем уже созданный заказ
-		// (проверку "payload same/different" можешь добавить позже)
-		return existing, nil
-	}
-
 	var createdOrder *model.Order
 
-	err = postgres.WithTx(ctx, s.db, func(tx pgx.Tx) error {
+	if err := postgres.WithTx(ctx, s.db, func(tx pgx.Tx) error {
 		userRepoTx := postgres.NewUserRepositoryTx(tx)
 		orderRepoTx := postgres.NewOrderRepositoryTx(tx)
 		orderItemRepoTx := postgres.NewOrderItemRepositoryTx(tx)
 		productRepoTx := postgres.NewProductRepositoryTx(tx)
 		sizeRepoTx := postgres.NewProductSizeRepositoryTx(tx)
 
-		// 3) create guest user
+		// 2) create guest user
 		user := &model.User{
 			Name:       strings.TrimSpace(req.Buyer.Name),
 			Surname:    strings.TrimSpace(req.Buyer.Surname),
@@ -117,7 +107,7 @@ func (s *orderService) Checkout(ctx context.Context, req dto.CreateOrderRequest)
 			return err
 		}
 
-		// 4) проверка позиций + расчет server total
+		// 3) проверка позиций + расчет server total
 		var serverTotal int64
 
 		for _, it := range req.Items {
@@ -144,25 +134,36 @@ func (s *orderService) Checkout(ctx context.Context, req dto.CreateOrderRequest)
 			serverTotal += product.Price * int64(it.Quantity)
 		}
 
-		// 5) сверка client total vs server total
-		// req.TotalAmount у тебя int64; сравниваем через int64(serverTotal) в текущем MVP
-		// (лучше позже перевести деньги полностью в копейки)
-		if int64(serverTotal) != req.TotalAmount {
+		// 4) сверка client total vs server total
+		if serverTotal != req.TotalAmount {
 			return errs.ErrConflict
 		}
 
-		// 6) create order
+		// 5) create order (idempotent via ON CONFLICT in repo Create)
 		order := &model.Order{
 			UserID:          user.ID,
 			ShippingAddress: req.ShippingAddress,
 			TotalAmount:     req.TotalAmount,
 			IdempotencyKey:  req.IdempotencyKey,
 		}
+
 		if err := orderRepoTx.Create(ctx, order); err != nil {
+			if errors.Is(err, errs.ErrIdempotencyAlreadyProcessed) {
+				existing, getErr := orderRepoTx.GetByIdempotencyKey(ctx, req.IdempotencyKey)
+				if getErr != nil {
+					return getErr
+				}
+				if existing == nil {
+					return errs.ErrConflict
+				}
+
+				createdOrder = existing
+				return nil
+			}
 			return err
 		}
 
-		// 7) create order_items + decrement stock
+		// 6) create order_items + decrement stock
 		for _, it := range req.Items {
 			product, err := productRepoTx.GetByID(ctx, it.ProductID)
 			if err != nil {
@@ -187,8 +188,7 @@ func (s *orderService) Checkout(ctx context.Context, req dto.CreateOrderRequest)
 
 		createdOrder = order
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
